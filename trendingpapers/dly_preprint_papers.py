@@ -1,6 +1,6 @@
+import time
 from typing import List, Dict
 
-from trendingpapers.config import CONFIG
 from trendingpapers.tools.arxiv_tool import ArxivKit
 
 class PapersPreprint:
@@ -22,7 +22,8 @@ class PapersPreprint:
                 category=domain, 
                 from_date=from_date, 
                 until_date=until_date)
-            daily_papers_metadata.append(papers_metadata)
+            daily_papers_metadata.extend(papers_metadata)
+            time.sleep(10)
         return daily_papers_metadata
     
     def filter_by_category(

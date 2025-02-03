@@ -70,7 +70,7 @@ class ArxivKit:
                 try:
                     record = await asyncio.to_thread(lambda: next(data, None))
                     if record is None:
-                        logger.info(f'Metadata for the specified period, {from_date} - {until_date} downloaded.')
+                        logger.info(f'{category} Metadata for the specified period, {from_date} - {until_date} downloaded.')
                         # Check if the file is empty
                         if os.stat(full_path).st_size == 0:
                             logger.warning("No records found matching the criteria.")

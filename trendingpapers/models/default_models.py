@@ -1,8 +1,6 @@
 import ollama
 import numpy as np
 
-from trendingpapers.config import CONFIG
-
 async def ollama_embedding(model, texts :list[str]) -> np.ndarray:
     embed_text = []
     for text in texts:

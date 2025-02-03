@@ -1,6 +1,6 @@
 import re
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 
 from json_repair import repair_json  # https://github.com/mangiucugna/json_repair/
@@ -8,7 +8,7 @@ from fp.fp import FreeProxy  # https://github.com/jundymek/free-proxy
 
 from trendingpapers.config import CONFIG
 from trendingpapers.tools.twitter_tool import TwitterKit
-from TrendingPapers.trendingpapers.models.default_models import gemini_llm
+from trendingpapers.models.default_models import gemini_llm
 
 # proxy
 def gen_proxy_list(timeout=5, google_enable=False, anonym=False, filtered=False, https=False):
@@ -78,7 +78,7 @@ class PapersDiscussed:
             dt_tm = datetime.strptime(dt_str, '%a %b %d %H:%M:%S +0000 %Y')
             base_dt_tm = datetime.strptime(base_dt, '%Y-%m-%d')
             # filter by time
-            if dt_tm >= base_dt_tm + datetime.timedelta(days=-timelength) and dt_tm <= base_dt_tm + datetime.timedelta(days=timelength):
+            if dt_tm >= base_dt_tm + timedelta(days=-timelength) and dt_tm <= base_dt_tm + timedelta(days=timelength):
                 url_info = tweet.get('entities', {}).get('urls', {})
                 flag = 0 
                 for item in url_info:

@@ -1,8 +1,9 @@
 import numpy as np
 from typing import List, Dict, Optional
-from TrendingPapers.trendingpapers.models.default_models import ollama_embedding, semantic_similarity_matrix
+from trendingpapers.models.default_models import ollama_embedding, semantic_similarity_matrix
 
 async def filter_by_topics(
+        model_name,   
         benchmarks: List[str],  # list of strings (like keywords, titles, abstracts)
         candidates: List[str],  # list of strings (like keywords, titles, abstracts)
         threshold: Optional[float] = 0.7, 
@@ -16,8 +17,8 @@ async def filter_by_topics(
         list of matching information
     """
     # calculate the similarity matrix
-    benchmarks_embeds = await ollama_embedding(benchmarks)
-    candidates_embeds = await ollama_embedding(candidates)
+    benchmarks_embeds = await ollama_embedding(model_name, benchmarks)
+    candidates_embeds = await ollama_embedding(model_name, candidates)
     similarity_matrix = semantic_similarity_matrix(benchmarks_embeds, candidates_embeds)
     similarity_matrix = np.array(similarity_matrix)
 

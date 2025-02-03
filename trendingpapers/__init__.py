@@ -5,7 +5,6 @@
 from .dly_preprint_papers import PapersPreprint
 from .dly_discussed_papers import PapersDiscussed
 from .dly_recommended_papers import PapersRecommended
-from .dly_reviewed_papers import PapersReviewed
 
 __version__ = "0.0.3"
 __author__ = "Jiezi4AI"

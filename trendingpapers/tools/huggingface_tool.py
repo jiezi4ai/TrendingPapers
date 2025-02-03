@@ -7,9 +7,9 @@ class HuggingFaceKit:
         self.headers = {}
 
     def fetch_daily_papers(self, max_cnt=100):
-        API_URL = "https://huggingface.co/api/daily_papers"
         try:
-            response = requests.get(f"{API_URL}?limit={max_cnt}")
+            response = requests.get(self.base_url)
+            # response = requests.get(f"{self.base_url}?limit={max_cnt}")
             response.raise_for_status()
             data = response.json()
 

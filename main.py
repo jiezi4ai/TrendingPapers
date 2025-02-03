@@ -1,13 +1,28 @@
+import asyncio
+import json
 import pandas as pd
 from typing import List, Dict, Optional
 
-from config import CONFIG
+from trendingpapers.config import CONFIG
 
-from .dly_preprint_papers import PapersPreprint
-from .dly_discussed_papers import PapersDiscussed
-from .dly_recommended_papers import PapersRecommended
-from .database.sqlite_interface import df_to_sqlite
-from .filter_and_ranking import filter_by_topics
+from trendingpapers.dly_preprint_papers import PapersPreprint
+from trendingpapers.dly_discussed_papers import PapersDiscussed
+from trendingpapers.dly_recommended_papers import PapersRecommended
+from trendingpapers.database.sqlite_interface import df_to_sqlite
+from trendingpapers.filter_and_ranking import filter_by_topics
+
+def deduplicate_list_of_dicts(data, key):
+  """dedup list of dicts based on given key. Keep only the first item.
+  """
+  seen = set()  # 使用集合来高效地检查是否已经遇到过某个值
+  deduplicated_data = []
+  for item in data:
+    value = item[key]
+    if value not in seen:
+      seen.add(value)
+      deduplicated_data.append(item)
+  return deduplicated_data
+
 
 async def get_dly_papers():
     """get daily preprint papers on specific domain and save to database
@@ -25,6 +40,7 @@ async def get_dly_papers():
         categories = CONFIG['ARXIV']['CATEGORY'])
     
     # save data to database
+    filtered_papers_metadata = deduplicate_list_of_dicts(filtered_papers_metadata, CONFIG['DATABASE']['OAI_PAPER_TBL_KEY'])
     df = pd.DataFrame(filtered_papers_metadata)
     df['insert_dt'] = CONFIG['TIME']['CURRENT_DT']
     df_to_sqlite(
@@ -43,9 +59,10 @@ def get_trending_papers():
 
     # get discussed papers from twitter
     tw = PapersDiscussed(if_proxy=True)
-    followed_users, followed_tweets = tw.get_user_tweets(top_k=30)
+    followed_users, followed_tweets = tw.get_user_tweets(top_k=100)
     
     # save user information
+    followed_users = deduplicate_list_of_dicts(followed_users, CONFIG['DATABASE']['TW_ACCT_TBL_KEY'])
     df_tw_accts = pd.DataFrame(followed_users)
     df_tw_accts['insert_dt'] = CONFIG['TIME']['CURRENT_DT']
     df_to_sqlite(
@@ -56,6 +73,7 @@ def get_trending_papers():
         id_key = CONFIG['DATABASE']['TW_ACCT_TBL_KEY'])
     
     # save tweets information
+    followed_tweets = deduplicate_list_of_dicts(followed_tweets, CONFIG['DATABASE']['TW_TWEET_TBL_KEY'])
     df_tw_tweets = pd.DataFrame(followed_tweets)
     df_tw_tweets['insert_dt'] = CONFIG['TIME']['CURRENT_DT']
     df_to_sqlite(
@@ -73,6 +91,7 @@ def get_trending_papers():
 
     # consolidate all papers
     recommended_papers_metadata = github_papers_metadata + hf_papers_metadata + tweet_paper_metadata
+    
     # save all papers
     df_papers = pd.DataFrame(recommended_papers_metadata)
     df_papers['insert_dt'] = CONFIG['TIME']['CURRENT_DT']
@@ -83,49 +102,72 @@ def get_trending_papers():
         if_exists = 'append')
     return recommended_papers_metadata
 
-async def filter_and_ranking_papers(
-        candidate_papers_info: List[str],
-        benchmark_texts: Optional[List[str]] = None,
-        if_zotero: Optional[bool] = False,
+
+def get_zotero_items(
+        zotero_lib_id: str = CONFIG['API']['ZOTERO_LIB_ID'],
+        zotero_api_key:str = CONFIG['API']['ZOTERO_API_KEY'] ):
+    """access zotero library to get paper items"""
+    try:
+        # further 
+        from pyzotero import zotero
+        zot = zotero.Zotero(library_id=zotero_lib_id, library_type='user', api_key=zotero_api_key) # local=True for read access to local Zotero
+        zot_papers = zot.top(limit=20, itemType='book || conferencePaper || journalArticle || preprint')  # itemType refer to zot.item_types()
+        return zot_papers
+    except Exception as e:
+        print(f"Could not access zotero due to {e}")
+        return None
+
+async def run_trending_papers(
+        model_name: Optional[str] = CONFIG['EMBED']['EMBEDDING_MODEL'],
+        keywords:Optional[List[str]]=[],
         zotero_lib_id: Optional[str] = CONFIG['API']['ZOTERO_LIB_ID'],
         zotero_api_key: Optional[str] = CONFIG['API']['ZOTERO_API_KEY']  
     ):
     """calculate semantic similarity between candidate_papers_info (from daily papers) and benchmark_texts (for user defined keywords, or user's existing papers)
     keep only alike papers
     """
-    if if_zotero:
-        if zotero_lib_id and zotero_api_key:
-            try:
-                # further 
-                from pyzotero import zotero
-                zot = zotero.Zotero(library_id=zotero_lib_id, library_type='user', api_key=zotero_api_key) # local=True for read access to local Zotero
-                zot_papers = zot.top(limit=20, itemType='book || conferencePaper || journalArticle || preprint')  # itemType refer to zot.item_types()
-                benchmarks = [x.get('data', {}).get('abstractNote') for x in zot_papers 
+    # get zotero papers
+    zot_papers = get_zotero_items(zotero_lib_id, zotero_api_key)
+    zot_abstracts = [x.get('data', {}).get('abstractNote') for x in zot_papers 
                               if x.get('data', {}).get('abstractNote')]
-            except Exception as e:
-                print(f"Could not access zotero due to {e}")
-                benchmarks = []
-    if benchmark_texts:
-        benchmarks += benchmark_texts
-
-    matched_papers_metadata, match_relationships  = await filter_by_topics(benchmarks, candidate_papers_info)
-    return matched_papers_metadata, match_relationships
-
-async def run_trending_papers():
+    
     # from all daily papers
     dly_papers_metadata = await get_dly_papers()
     dly_papers_abstracts = [x.get('abstract', 'NA') for x in dly_papers_metadata]
-    matched_dlypapers_metadata, match_relationships = await filter_and_ranking_papers(
-        candidate_papers_info = dly_papers_abstracts, 
-        if_zotero = True)
 
     # from recommended papers
     recommended_papers_metadata = get_trending_papers()
     rec_papers_abstracts = [x.get('abstract', 'NA') for x in recommended_papers_metadata]
-    matched_recpapers_metadata, match_relationships = await filter_and_ranking_papers(
-        candidate_papers_info = rec_papers_abstracts, 
-        if_zotero = True)
     
-    urls = [x.get('paper_url') for x in matched_dlypapers_metadata+matched_recpapers_metadata if x.get('paper_url')]
-    # search semantic scholar for detailed paper metadata
+    # match daily papers with keywords & zotero papers
+    matched_dlypapers_metadata, match_relationships = await filter_by_topics(
+        model_name = model_name,
+        benchmarks = zot_abstracts + keywords,
+        candidates = dly_papers_abstracts + rec_papers_abstracts)
+    
+    for idx, item in enumerate(match_relationships):
+        info = (matched_dlypapers_metadata)[idx]
+        # paper = {"title": entry[1].strip(),
+        #          "abstract": entry[2].strip(),
+        #          "paper_url": entry[3].strip(),
+        # }
+        print("\n\nSuggested Readings:\n")
+        print('```json')
+        print(json.dumps(info, ensure_ascii=False, indent=4))
+        print('```')
+        print("Matched Reasons:\n")
+        for x in item.get('matched_info'):
+            pos = x.get('candidate_index')
+            matched_score = x.get('similarity')
+            if pos < len(zot_papers):
+                print(f"matched paper '{zot_papers[pos]}', similarity score: {matched_score}")
+            else:
+                print(f"matched keywords '{keywords[pos]}', similarity score: {matched_score}")
 
+async def main():
+    keywords = []  # Example keywords
+    await run_trending_papers(keywords=keywords)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

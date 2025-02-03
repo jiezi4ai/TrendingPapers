@@ -1,14 +1,14 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 CURRENT_DT = datetime.today().strftime('%Y-%m-%d')
-YESTERDAY = (datetime.today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+YESTERDAY = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d') 
 
 CONFIG = {
     'DEBUG': True,
     'TIME': {
-        'CURRENT_DT': datetime.today().strftime('%Y-%m-%d'),
-        'YESTERDAY': (datetime.today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d'),
+        'CURRENT_DT': CURRENT_DT,
+        'YESTERDAY': YESTERDAY,
         'TIMELENGTH': 7,  # datelength of past 7 days
     },
     'ARXIV':{
@@ -30,7 +30,7 @@ CONFIG = {
         ]
     },
     'DATABASE': {  # params on database
-        'DB_PATH': './data/',
+        'DB_PATH': '/Users/jiezi/Documents/Local Code/Project/TrendingPapers/data/',
         'DB_NAME': 'trending_papers.db',
 
         'OAI_PAPER_TBL_NM': "oai_paper_pool",  # table for preprint paper metadata (batch trhough OAI)
