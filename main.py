@@ -109,7 +109,7 @@ def get_zotero_items(
     """access zotero library to get paper items"""
     try:
         # further 
-        from pyzotero import zotero
+        from pyzotero import zotero  # pip install pyzotero https://github.com/urschrei/pyzotero
         zot = zotero.Zotero(library_id=zotero_lib_id, library_type='user', api_key=zotero_api_key) # local=True for read access to local Zotero
         zot_papers = zot.top(limit=20, itemType='book || conferencePaper || journalArticle || preprint')  # itemType refer to zot.item_types()
         return zot_papers

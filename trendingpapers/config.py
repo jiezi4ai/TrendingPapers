@@ -30,7 +30,7 @@ CONFIG = {
         ]
     },
     'DATABASE': {  # params on database
-        'DB_PATH': '/Users/jiezi/Documents/Local Code/Project/TrendingPapers/data/',
+        'DB_PATH': '/home/jiezi/Code/Github/TrendingPapers/data/',
         'DB_NAME': 'trending_papers.db',
 
         'OAI_PAPER_TBL_NM': "oai_paper_pool",  # table for preprint paper metadata (batch trhough OAI)
