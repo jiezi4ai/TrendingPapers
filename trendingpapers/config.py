@@ -58,5 +58,6 @@ CONFIG = {
     'API':{  # optional apis
         'ZOTERO_LIB_ID': os.getenv('ZOTERO_LIB_ID_1'),
         'ZOTERO_API_KEY': os.getenv('ZOTERO_API_KEY_1'),
+        'FIRECRAWL_API_KEY': os.getenv('FIRECRAWL_API_KEY_2'),
     }
 }

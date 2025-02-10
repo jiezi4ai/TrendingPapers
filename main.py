@@ -1,7 +1,9 @@
+import os
 import asyncio
 import json
 import pandas as pd
 from typing import List, Dict, Optional
+from pyzotero import zotero  # pip install pyzotero https://github.com/urschrei/pyzotero
 
 from trendingpapers.config import CONFIG
 
@@ -12,16 +14,16 @@ from trendingpapers.database.sqlite_interface import df_to_sqlite
 from trendingpapers.filter_and_ranking import filter_by_topics
 
 def deduplicate_list_of_dicts(data, key):
-  """dedup list of dicts based on given key. Keep only the first item.
-  """
-  seen = set()  # 使用集合来高效地检查是否已经遇到过某个值
-  deduplicated_data = []
-  for item in data:
-    value = item[key]
-    if value not in seen:
-      seen.add(value)
-      deduplicated_data.append(item)
-  return deduplicated_data
+    """dedup list of dicts based on given key. Keep only the first item.
+    """
+    seen = set()  # 使用集合来高效地检查是否已经遇到过某个值
+    deduplicated_data = []
+    for item in data:
+        value = item[key]
+        if value not in seen:
+            seen.add(value)
+            deduplicated_data.append(item)
+    return deduplicated_data
 
 
 async def get_dly_papers():
@@ -46,14 +48,15 @@ async def get_dly_papers():
     df_to_sqlite(
         df, 
         table_name = CONFIG['DATABASE']['OAI_PAPER_TBL_NM'], 
-        db_name = CONFIG['DATABASE']['DB_PATH'] + '/' +  CONFIG['DATABASE']['DB_NAME'],
+        db_name = os.path.join(CONFIG['DATABASE']['DB_PATH'], CONFIG['DATABASE']['DB_NAME']),
         if_exists = 'append', 
         id_key = CONFIG['DATABASE']['OAI_PAPER_TBL_KEY'])
     return filtered_papers_metadata
 
 def get_trending_papers():
+    firecrawl_api_key = CONFIG['API']['FIRECRAWL_API_KEY']
     # get recommended papers
-    rec = PapersRecommended()
+    rec = PapersRecommended(firecrawl_api_key)
     github_papers_metadata = rec.get_github_recommended_papers()
     hf_papers_metadata = rec.get_huggingface_daily_papers()
 
@@ -68,7 +71,7 @@ def get_trending_papers():
     df_to_sqlite(
         df_tw_accts, 
         table_name = CONFIG['DATABASE']['TW_ACCT_TBL_NM'], 
-        db_name = CONFIG['DATABASE']['DB_PATH'] + '/' +  CONFIG['DATABASE']['DB_NAME'],
+        db_name = os.path.join(CONFIG['DATABASE']['DB_PATH'],  CONFIG['DATABASE']['DB_NAME']),
         if_exists = 'append', 
         id_key = CONFIG['DATABASE']['TW_ACCT_TBL_KEY'])
     
@@ -79,7 +82,7 @@ def get_trending_papers():
     df_to_sqlite(
         df_tw_tweets, 
         table_name = CONFIG['DATABASE']['TW_TWEET_TBL_NM'], 
-        db_name = CONFIG['DATABASE']['DB_PATH'] + '/' +  CONFIG['DATABASE']['DB_NAME'],
+        db_name = os.path.join(CONFIG['DATABASE']['DB_PATH'],  CONFIG['DATABASE']['DB_NAME']),
         if_exists = 'append', 
         id_key = CONFIG['DATABASE']['TW_TWEET_TBL_KEY'])
     
@@ -90,7 +93,7 @@ def get_trending_papers():
         timelength = CONFIG['TIME']['TIMELENGTH'])
 
     # consolidate all papers
-    recommended_papers_metadata = github_papers_metadata + hf_papers_metadata + tweet_paper_metadata
+    recommended_papers_metadata = hf_papers_metadata + github_papers_metadata + tweet_paper_metadata
     
     # save all papers
     df_papers = pd.DataFrame(recommended_papers_metadata)
@@ -98,7 +101,7 @@ def get_trending_papers():
     df_to_sqlite(
         df_papers, 
         table_name = CONFIG['DATABASE']['DAILY_PAPER_TBL_NM'], 
-        db_name = CONFIG['DATABASE']['DB_PATH'] + '/' +  CONFIG['DATABASE']['DB_NAME'],
+        db_name = os.path.join(CONFIG['DATABASE']['DB_PATH'], CONFIG['DATABASE']['DB_NAME']),
         if_exists = 'append')
     return recommended_papers_metadata
 
@@ -109,7 +112,6 @@ def get_zotero_items(
     """access zotero library to get paper items"""
     try:
         # further 
-        from pyzotero import zotero  # pip install pyzotero https://github.com/urschrei/pyzotero
         zot = zotero.Zotero(library_id=zotero_lib_id, library_type='user', api_key=zotero_api_key) # local=True for read access to local Zotero
         zot_papers = zot.top(limit=20, itemType='book || conferencePaper || journalArticle || preprint')  # itemType refer to zot.item_types()
         return zot_papers
@@ -134,17 +136,23 @@ async def run_trending_papers(
     # from all daily papers
     dly_papers_metadata = await get_dly_papers()
     dly_papers_abstracts = [x.get('abstract', 'NA') for x in dly_papers_metadata]
+    dly_papers_titles = [x.get('title') for x in dly_papers_metadata]
 
     # from recommended papers
     recommended_papers_metadata = get_trending_papers()
     rec_papers_abstracts = [x.get('abstract', 'NA') for x in recommended_papers_metadata]
+    rec_papers_titles = [x.get('title') for x in recommended_papers_metadata]
     
     # match daily papers with keywords & zotero papers
     matched_dlypapers_metadata, match_relationships = await filter_by_topics(
         model_name = model_name,
         benchmarks = zot_abstracts + keywords,
-        candidates = dly_papers_abstracts + rec_papers_abstracts)
+        candidates = dly_papers_abstracts + rec_papers_abstracts,
+        threshold=0.70)
     
+    # message showing matching logic
+    
+
     for idx, item in enumerate(match_relationships):
         info = (matched_dlypapers_metadata)[idx]
         # paper = {"title": entry[1].strip(),
@@ -152,15 +160,17 @@ async def run_trending_papers(
         #          "paper_url": entry[3].strip(),
         # }
         print("\n\nSuggested Readings:\n")
-        print('```json')
+        print(f"Title: {(dly_papers_titles+rec_papers_titles)[item.get('candidate_index')]}\n")
+        print('```ABSTRACT')
         print(json.dumps(info, ensure_ascii=False, indent=4))
         print('```')
         print("Matched Reasons:\n")
+
         for x in item.get('matched_info'):
-            pos = x.get('candidate_index')
+            pos = x.get('row_index')
             matched_score = x.get('similarity')
             if pos < len(zot_papers):
-                print(f"matched paper '{zot_papers[pos]}', similarity score: {matched_score}")
+                print(f"matched paper '{zot_papers[pos].get('data', {}).get('title')}', similarity score: {matched_score}")
             else:
                 print(f"matched keywords '{keywords[pos]}', similarity score: {matched_score}")
 

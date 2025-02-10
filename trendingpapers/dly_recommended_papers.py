@@ -9,9 +9,10 @@ from trendingpapers.tools.github_tool import GitHubKit
 from trendingpapers.tools.huggingface_tool import HuggingFaceKit
 
 class PapersRecommended:
-    def __init__(self):
+    def __init__(self, firecrawl_api_key=None):
         self.github_repo_url = "https://github.com/dair-ai/ML-Papers-of-the-Week"
         self.hugginface_url = "https://huggingface.co/api/daily_papers"
+        self.firecrawl_api_key = firecrawl_api_key
 
     def get_github_recommended_papers(self):
         """Get github recommended papers from url
@@ -48,7 +49,7 @@ class PapersRecommended:
         return papers
 
     def get_huggingface_daily_papers(self):
-        huggingface = HuggingFaceKit()
+        huggingface = HuggingFaceKit(max_retries_cnt=3, firecrawl_api_key=self.firecrawl_api_key)
         hf_papers = huggingface.fetch_daily_papers(max_cnt=100)
 
         papers = []

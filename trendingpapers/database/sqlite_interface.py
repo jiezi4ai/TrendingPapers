@@ -1,6 +1,5 @@
 import json
 import sqlite3
-import pandas as pd
 import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -48,14 +47,14 @@ def df_to_sqlite(
             cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'")
             table_exists = cursor.fetchone() is not None
 
+            # 1. Identify and Convert Dict/List-of-Dict Columns to JSON
+            # This block of code must be placed before creating the table
+            for col in df_converted.columns:
+                if df_converted[col].dtype == 'object':
+                    df_converted[col] = df_converted[col].apply(lambda x: json.dumps(x, ensure_ascii=False) if any(isinstance(x, (dict, list)) for x in df_converted[col].dropna()) else str(x))
+
             # Create table if it doesn't exist
             if not table_exists:
-                # 1. Identify and Convert Dict/List-of-Dict Columns to JSON
-                # This block of code must be placed before creating the table
-                for col in df_converted.columns:
-                    if df_converted[col].dtype == 'object':
-                        df_converted[col] = df_converted[col].apply(lambda x: json.dumps(x, ensure_ascii=False) if any(isinstance(x, (dict, list)) for x in df_converted[col].dropna()) else str(x))
-
                 create_table_from_df(conn, df_converted, table_name, id_key)
 
             # Get the list of columns in the existing table
@@ -64,7 +63,7 @@ def df_to_sqlite(
 
             if id_key and table_exists:
                 # Fetch existing IDs from the database
-                cursor.execute(f"SELECT {id_key} FROM {table_name}")
+                cursor.execute(f"SELECT DISTINCT {id_key} FROM {table_name}")
                 existing_ids = {row[0] for row in cursor.fetchall()}
 
                 # Filter out rows with IDs that already exist
@@ -90,20 +89,22 @@ def df_to_sqlite(
                 df_converted = df_converted[list(table_columns)]
             
             # 2. Explicitly define SQLite types if needed
-            # This block of code is no longer needed if you've created table using create_table_from_df()
-            # dtype_mapping = {}
-            # for col in df_converted.columns:
-            #     if df_converted[col].dtype == 'object':
-            #         dtype_mapping[col] = 'TEXT'
-            #     elif df_converted[col].dtype == 'int64':
-            #         dtype_mapping[col] = 'INTEGER'
-            #     elif df_converted[col].dtype == 'float64':
-            #         dtype_mapping[col] = 'REAL'
-            # df_converted.to_sql(
-            #     table_name, conn, if_exists=if_exists, index=False,
-            #     dtype=dtype_mapping
-            #     )
-            df_converted.to_sql(table_name, conn, if_exists=if_exists, index=False)
+            dtype_mapping = {}
+            for col_name, col_type in df_converted.dtypes.items():
+                if col_name == id_key:
+                    dtype_mapping[col_name] = "TEXT PRIMARY KEY"  # Assuming ID key is text
+                elif 'int' in str(col_type):
+                    dtype_mapping[col_name]  = "INTEGER"
+                elif 'float' in str(col_type):
+                    dtype_mapping[col_name]  = "REAL"
+                else:
+                    dtype_mapping[col_name]  = "TEXT"
+
+            df_converted.to_sql(
+                table_name, conn, if_exists=if_exists, index=False,
+                dtype=dtype_mapping
+                )
+            # df_converted.to_sql(table_name, conn, if_exists=if_exists, index=False)
             print(f"Data successfully written to table '{table_name}' in '{db_name}'")
         except Exception as e:
             logger.error(f"Error writing to database: {e}")
