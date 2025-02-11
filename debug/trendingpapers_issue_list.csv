@@ -12,3 +12,4 @@ TypeError: '<' not supported between instances of 'NoneType' and 'int'",could no
 Use server in the future.",Huggingface prevents proxy connection,yes,2025-02-10,,,,
 2025-02-06,warning,package warning ,when initiate Tweepy,,[WARNING] :: [Errno 2] No such file or directory: '/tmp/tweeterpy_api.json',,medium,,,,,,,,
 2025-02-10,enhancement,data source enhancement,add more daily papers sources,get more feeds for daily papers,,,,,,,,,,,
+2025-02-10,enhancement,knowledge management,save matched papers information,"lower matching threshold, save all matched papers information for further analysis",,,,,,,,,,,
