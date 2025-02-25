@@ -1,4 +1,4 @@
-import ollama
+import ollama  # pip install ollama
 import numpy as np
 
 async def ollama_embedding(model, texts :list[str]) -> np.ndarray:
@@ -8,15 +8,15 @@ async def ollama_embedding(model, texts :list[str]) -> np.ndarray:
       embed_text.append(data["embedding"])
     return embed_text
 
-from sentence_transformers import util
+from sentence_transformers import util  # pip install sentence-transformers https://github.com/UKPLab/sentence-transformers
 
 def semantic_similarity_matrix(vec_x, vec_y):
     # embeds = await ollama_embedding(text_lst)
     cosine_scores = util.pytorch_cos_sim(vec_x, vec_y)  # 计算余弦相似度矩阵，仅计算上三角部分
     return cosine_scores
 
-from google import genai
-from google.genai import types
+from google import genai  # pip install google-genai https://github.com/googleapis/python-genai
+from google.genai import types  
 
 def gemini_llm(api_key, model_name, qa_prompt, sys_prompt=None, temperature=0.3):
     client = genai.Client(api_key=api_key)

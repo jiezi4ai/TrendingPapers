@@ -3,8 +3,8 @@ import json
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 
-from json_repair import repair_json  # https://github.com/mangiucugna/json_repair/
-from fp.fp import FreeProxy  # https://github.com/jundymek/free-proxy
+from json_repair import repair_json  # pip install json-repair https://github.com/mangiucugna/json_repair/
+from fp.fp import FreeProxy  # pip install free-proxy https://github.com/jundymek/free-proxy
 
 from trendingpapers.config import CONFIG
 from trendingpapers.tools.twitter_tool import TwitterKit

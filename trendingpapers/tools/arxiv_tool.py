@@ -3,7 +3,7 @@ import arxiv # pip install arxiv (source from https://github.com/lukasschwab/arx
 from sickle import Sickle # pip install sickle https://github.com/mloesch/sickle
 
 import os
-import aiofiles
+import aiofiles  # pip install aiofiles https://github.com/Tinche/aiofiles
 import aiofiles.os
 import aiofiles.ospath
 import pandas as pd
@@ -65,7 +65,7 @@ class ArxivKit:
 
         xml_file_nm = f"{category}_{from_date}_{until_date}.xml"
         full_path = os.path.join(self.data_path, xml_file_nm)
-        async with aiofiles.open(full_path, 'a+', encoding="utf-8") as f:
+        async with aiofiles.open(full_path, 'w', encoding="utf-8") as f:
             while True:
                 try:
                     record = await asyncio.to_thread(lambda: next(data, None))

@@ -11,7 +11,7 @@ import requests
 import pandas as pd
 from typing import Dict, List
 
-from tweeterpy import TweeterPy  # https://github.com/iSarabjitDhiman/TweeterPy
+from tweeterpy import TweeterPy  # pip install tweeterpy https://github.com/iSarabjitDhiman/TweeterPy
 
 # Configure logging
 import logging
@@ -52,13 +52,6 @@ class TwitterKit:
         self.sessions = {}  # Dictionary to store requests.Session objects per proxy
         self.tw_clients = {}  # Dictionary to store TweeterPy clients per proxy
         
-    async def _login_twikit(self):
-        self.twikit_client = twikit.Client('en-US')
-        await self.twikit_client.login(
-                auth_info_1=self.x_login_name ,
-                auth_info_2=self.x_login_email,
-                password=self.x_password
-            )
     def _get_session(self, proxy=None):
         """Gets or creates a requests.Session object, optionally with proxy settings."""
         if proxy:
@@ -212,7 +205,6 @@ class TwitterKit:
             tweet_dcts (list of dict): 
                   a simplified version of tweet dicts, including only author, text, tweet_id, timestamp, media, links.
                   include multiple tweet under same user.
-                  sample refere to 'https://xapi.betaco.tech/x-thread-api?url=https://x.com/ulriklykke/status/1879549567278203364'
         """
         def _scrape_tweet_by_id_inner(proxy, username, tweet_id):
            try:

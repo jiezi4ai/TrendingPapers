@@ -1,0 +1,12 @@
+pandas
+pyzotero
+arxiv
+sickle
+json-repair
+free-proxy
+ollama 
+tweeterpy 
+sentence-transformers
+google-genai
+PyGithub 
+firecrawl-py
