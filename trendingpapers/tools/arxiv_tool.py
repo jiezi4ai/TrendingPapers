@@ -3,7 +3,7 @@ import arxiv # pip install arxiv (source from https://github.com/lukasschwab/arx
 from sickle import Sickle # pip install sickle https://github.com/mloesch/sickle
 
 import os
-import aiofiles  # pip install aiofiles https://github.com/Tinche/aiofiles
+import aiofiles
 import aiofiles.os
 import aiofiles.ospath
 import pandas as pd
@@ -28,16 +28,57 @@ async def handle_http_error(e):
         raise e
 
 class ArxivKit:   
-    def __init__(self, data_path):                 
+    def __init__(self):                 
         self.client = arxiv.Client(page_size= 100, delay_seconds=3.0, num_retries=3)
         self.connection = Sickle('http://export.arxiv.org/oai2')
-        self.data_path = data_path
+
+    def retrieve_metadata_by_paper(
+            self,
+            query_term: str = '', 
+            paper_ids: List = [], 
+            max_cnt: int =100, 
+            sort_by: str ="relevance",
+            order: str = "descending"):
+        """search papers' metadata from arxiv
+        Args:
+            query_term (str): The query term to search for.
+            paper_ids (list): The list of paper ids to search for.
+        Returns:
+
+        """
+        # Construct the default API client.
+        if max_cnt > 100:
+            self.client = arxiv.Client(page_size=1000, delay_seconds=10.0, num_retries = 5)
+
+        sort_criteria = arxiv.SortCriterion.Relevance
+        if sort_by == "lastUpdatedDate":
+            sort_criteria = arxiv.SortCriterion.LastUpdatedDate
+        elif sort_by == "submittedDate":
+            sort_criteria = arxiv.SortCriterion.SubmittedDate
+
+        order_sequence = arxiv.SortOrder.Descending
+        if order == "ascending":
+            order_sequence = arxiv.SortOrder.Ascending
+
+        # conduct search
+        search = arxiv.Search(
+            query = query_term,
+            id_list = paper_ids,
+            max_results = max_cnt,
+            sort_by = sort_criteria,
+            sort_order = order_sequence
+        )
+        arxiv_metadata = []
+        for item in self.client.results(search):
+            arxiv_metadata.append(item.__dict__['_raw'])
+        return arxiv_metadata
 
     async def download_category_metadata(
             self,
             category,
             from_date,
-            until_date):
+            until_date,
+            data_path):
         """Download metadata from arXiv for specific category and date range in batch.
         Args:
             category (str): Specify paper category like "cs", "math", etc.
@@ -64,8 +105,8 @@ class ArxivKit:
         errors = 0
 
         xml_file_nm = f"{category}_{from_date}_{until_date}.xml"
-        full_path = os.path.join(self.data_path, xml_file_nm)
-        async with aiofiles.open(full_path, 'w', encoding="utf-8") as f:
+        full_path = os.path.join(data_path, xml_file_nm)
+        async with aiofiles.open(full_path, 'a+', encoding="utf-8") as f:
             while True:
                 try:
                     record = await asyncio.to_thread(lambda: next(data, None))
@@ -98,7 +139,7 @@ class ArxivKit:
                         logger.critical('Too many consecutive errors, stopping the harvester.')
                         raise
 
-    async def retrieve_metadata_by_category(self, category, from_date, until_date):
+    async def retrieve_metadata_by_category(self, category, from_date, until_date, data_path):
         """retrieve metadata by category through OAI protocol
         Args:
             category (str): Specify paper category like "cs", "math", etc. 
@@ -109,7 +150,7 @@ class ArxivKit:
         Returns:
             str: full path of the downloaded metadata file
         """
-        full_path = await self.download_category_metadata(category, from_date, until_date)
+        full_path = await self.download_category_metadata(category, from_date, until_date, data_path)
         if os.path.exists(full_path) and full_path.endswith('.xml') and os.path.getsize(full_path) > 0:
             # define namespace
             namespaces = {

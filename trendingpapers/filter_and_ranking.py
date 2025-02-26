@@ -1,13 +1,15 @@
 import numpy as np
 from typing import List, Dict, Optional
-from trendingpapers.models.default_models import ollama_embedding, semantic_similarity_matrix
+from trendingpapers.models.default_models import gemini_embedding_async, semantic_similarity_matrix
 
 async def filter_by_topics(
+        api_key,
         model_name,   
         benchmarks: List[str],  # list of strings (like keywords, titles, abstracts)
         candidates: List[str],  # list of strings (like keywords, titles, abstracts)
         threshold: Optional[float] = 0.7, 
-        top_k: Optional[int] = 10):
+        top_k: Optional[int] = 10,
+        n_concurrent: Optional[int] = 5):
     """based on user's preference match candidates papers' abstract to existing benchmark papers'
     Args:
         benchmarks: a list of keywords, titles, or abstracts of existing papers
@@ -17,8 +19,10 @@ async def filter_by_topics(
         list of matching information
     """
     # calculate the similarity matrix
-    benchmarks_embeds = await ollama_embedding(model_name, benchmarks)
-    candidates_embeds = await ollama_embedding(model_name, candidates)
+    benchmarks_embeds = await gemini_embedding_async(api_key, model_name, benchmarks, n_concurrent)
+    candidates_embeds = await gemini_embedding_async(api_key, model_name, candidates, n_concurrent)
+    # benchmarks_embeds = await ollama_embedding(model_name, benchmarks)
+    # candidates_embeds = await ollama_embedding(model_name, candidates)
     similarity_matrix = semantic_similarity_matrix(benchmarks_embeds, candidates_embeds)
     similarity_matrix = np.array(similarity_matrix)
 

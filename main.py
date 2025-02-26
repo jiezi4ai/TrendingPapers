@@ -120,6 +120,7 @@ def get_zotero_items(
         return None
 
 async def run_trending_papers(
+        api_key: Optional[str] = CONFIG['EMBED']['EMBEDDING_API_KEY'],
         model_name: Optional[str] = CONFIG['EMBED']['EMBEDDING_MODEL'],
         keywords:Optional[List[str]]=[],
         zotero_lib_id: Optional[str] = CONFIG['API']['ZOTERO_LIB_ID'],
@@ -145,14 +146,14 @@ async def run_trending_papers(
     
     # match daily papers with keywords & zotero papers
     matched_dlypapers_metadata, match_relationships = await filter_by_topics(
+        api_key = api_key,
         model_name = model_name,
         benchmarks = zot_abstracts + keywords,
         candidates = dly_papers_abstracts + rec_papers_abstracts,
-        threshold=0.70)
+        threshold=0.70,
+        n_concurrent=5)
     
     # message showing matching logic
-    
-
     for idx, item in enumerate(match_relationships):
         info = (matched_dlypapers_metadata)[idx]
         # paper = {"title": entry[1].strip(),

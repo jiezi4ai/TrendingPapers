@@ -10,3 +10,4 @@ sentence-transformers
 google-genai
 PyGithub 
 firecrawl-py
+aiohttp

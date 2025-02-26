@@ -51,7 +51,8 @@ CONFIG = {
         'GEMINI_MDL_NM': "gemini-2.0-flash-exp"
     },
     'EMBED': {   # embedding model settings
-        'EMBEDDING_MODEL': "snowflake-arctic-embed2:latest",
+        'EMBEDDING_API_KEY': os.getenv('GEMINI_API_KEY_1'), # ngelect for ollama model
+        'EMBEDDING_MODEL': "models/text-embedding-004", # "snowflake-arctic-embed2:latest",
         'EMBEDDING_MODEL_DIM': 1024,
         'EMBEDDING_MODEL_MAX_TOKENS': 8192
     },
