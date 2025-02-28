@@ -4,19 +4,29 @@ import json
 import pandas as pd
 from typing import List, Dict, Optional
 from pyzotero import zotero  # pip install pyzotero https://github.com/urschrei/pyzotero
+from fp.fp import FreeProxy  # pip install free-proxy https://github.com/jundymek/free-proxy
 
 from trendingpapers.config import CONFIG
-
 from trendingpapers.dly_preprint_papers import PapersPreprint
 from trendingpapers.dly_discussed_papers import PapersDiscussed
 from trendingpapers.dly_recommended_papers import PapersRecommended
 from trendingpapers.database.sqlite_interface import df_to_sqlite
 from trendingpapers.filter_and_ranking import filter_by_topics
 
+def gen_proxy_list(timeout=5, google_enable=False, anonym=False, filtered=False, https=False):
+    return FreeProxy(
+        timeout=timeout, 
+        google=google_enable, 
+        anonym=anonym,
+        elite=filtered,
+        https=https,
+        rand=True).get_proxy_list(repeat=True)
+
+
 def deduplicate_list_of_dicts(data, key):
     """dedup list of dicts based on given key. Keep only the first item.
     """
-    seen = set()  # 使用集合来高效地检查是否已经遇到过某个值
+    seen = set()  
     deduplicated_data = []
     for item in data:
         value = item[key]
@@ -61,36 +71,40 @@ def get_trending_papers():
     hf_papers_metadata = rec.get_huggingface_daily_papers()
 
     # get discussed papers from twitter
-    tw = PapersDiscussed(if_proxy=True)
-    followed_users, followed_tweets = tw.get_user_tweets(top_k=100)
-    
-    # save user information
-    followed_users = deduplicate_list_of_dicts(followed_users, CONFIG['DATABASE']['TW_ACCT_TBL_KEY'])
-    df_tw_accts = pd.DataFrame(followed_users)
-    df_tw_accts['insert_dt'] = CONFIG['TIME']['CURRENT_DT']
-    df_to_sqlite(
-        df_tw_accts, 
-        table_name = CONFIG['DATABASE']['TW_ACCT_TBL_NM'], 
-        db_name = os.path.join(CONFIG['DATABASE']['DB_PATH'],  CONFIG['DATABASE']['DB_NAME']),
-        if_exists = 'append', 
-        id_key = CONFIG['DATABASE']['TW_ACCT_TBL_KEY'])
-    
-    # save tweets information
-    followed_tweets = deduplicate_list_of_dicts(followed_tweets, CONFIG['DATABASE']['TW_TWEET_TBL_KEY'])
-    df_tw_tweets = pd.DataFrame(followed_tweets)
-    df_tw_tweets['insert_dt'] = CONFIG['TIME']['CURRENT_DT']
-    df_to_sqlite(
-        df_tw_tweets, 
-        table_name = CONFIG['DATABASE']['TW_TWEET_TBL_NM'], 
-        db_name = os.path.join(CONFIG['DATABASE']['DB_PATH'],  CONFIG['DATABASE']['DB_NAME']),
-        if_exists = 'append', 
-        id_key = CONFIG['DATABASE']['TW_TWEET_TBL_KEY'])
-    
-    # get paper related tweets
-    tweet_paper_metadata, _ = tw.regroup_user_tweets(
-        tweets = followed_tweets, 
-        base_dt = CONFIG['TIME']['CURRENT_DT'],
-        timelength = CONFIG['TIME']['TIMELENGTH'])
+    try:
+        http_proxies = gen_proxy_list()
+        tw = PapersDiscussed()
+        srch_results = tw.get_tweet_urls(max_cnt=20, past_n_days=3)
+        followed_users, followed_tweets = tw.get_all_accts_tweets(srch_results, http_proxies)
+        
+        # save user information
+        followed_users = deduplicate_list_of_dicts(followed_users, CONFIG['DATABASE']['TW_ACCT_TBL_KEY'])
+        df_tw_accts = pd.DataFrame(followed_users)
+        df_tw_accts['insert_dt'] = CONFIG['TIME']['CURRENT_DT']
+        df_to_sqlite(
+            df_tw_accts, 
+            table_name = CONFIG['DATABASE']['TW_ACCT_TBL_NM'], 
+            db_name = os.path.join(CONFIG['DATABASE']['DB_PATH'],  CONFIG['DATABASE']['DB_NAME']),
+            if_exists = 'append', 
+            id_key = CONFIG['DATABASE']['TW_ACCT_TBL_KEY'])
+        
+        # save tweets information
+        followed_tweets = deduplicate_list_of_dicts(followed_tweets, CONFIG['DATABASE']['TW_TWEET_TBL_KEY'])
+        df_tw_tweets = pd.DataFrame(followed_tweets)
+        df_tw_tweets['insert_dt'] = CONFIG['TIME']['CURRENT_DT']
+        df_to_sqlite(
+            df_tw_tweets, 
+            table_name = CONFIG['DATABASE']['TW_TWEET_TBL_NM'], 
+            db_name = os.path.join(CONFIG['DATABASE']['DB_PATH'],  CONFIG['DATABASE']['DB_NAME']),
+            if_exists = 'append', 
+            id_key = CONFIG['DATABASE']['TW_TWEET_TBL_KEY'])
+        
+        # get paper related tweets
+        tweet_arxiv_info = tw.get_arxiv_ids(followed_users, followed_tweets)
+        tweet_paper_metadata = tw.retieve_paper_meta(tweet_arxiv_info)
+    except Exception as e:
+        print("Unable to get tweet from followed accounts in X.")
+        tweet_paper_metadata = []
 
     # consolidate all papers
     recommended_papers_metadata = hf_papers_metadata + github_papers_metadata + tweet_paper_metadata

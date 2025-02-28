@@ -1,151 +1,115 @@
 import re
 import json
+import time
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 
 from json_repair import repair_json  # pip install json-repair https://github.com/mangiucugna/json_repair/
-from fp.fp import FreeProxy  # pip install free-proxy https://github.com/jundymek/free-proxy
 
 from trendingpapers.config import CONFIG
+from trendingpapers.tools.web_search_tool import WebSearch
 from trendingpapers.tools.twitter_tool import TwitterKit
-from trendingpapers.models.default_models import gemini_llm
+from trendingpapers.tools.arxiv_tool import ArxivKit
 
-# proxy
-def gen_proxy_list(timeout=5, google_enable=False, anonym=False, filtered=False, https=False):
-    return FreeProxy(
-        timeout=timeout, 
-        google=google_enable, 
-        anonym=anonym,
-        elite=filtered,
-        https=https,
-        rand=True).get_proxy_list(repeat=True)
 
 class PapersDiscussed:
     def __init__(
-            self, 
-            if_proxy: Optional[bool] = False, 
-            twitter_accts: Optional[List[str]] = CONFIG['TWITTER']['FOLLOWED_ACCTS']):
+            self,  
+            followed_accts: Optional[List[str]] = CONFIG['TWITTER']['FOLLOWED_ACCTS']):
         """Find out papers that discussed in social medium
         """
-        http_proxies = gen_proxy_list(timeout=5) if if_proxy else None
-        self.twitter = TwitterKit(proxy_list=http_proxies)
-        self.twitter_accts = twitter_accts
+        self.followed_accts = followed_accts
         self.website = CONFIG['TWITTER']['DETECTED_WEBSITE']
         self.url_pattern = r"(" + "|".join(map(lambda x: x.replace(".", r"\."), self.website)) + ")"
 
-    def get_user_tweets(self, top_k=30):
+    def get_tweet_urls(self, proxies:Optional[List[str]]=None, max_cnt:Optional[int]=20, past_n_days:Optional[int]=3):
+        """Use google search to get tweet urls for specific twitter account
+        Args:
+            screen name (str): screen name of twitter account
+            max_cnt (int): maximum number of tweet urls
+            past_n_days (int): restrict tweet within past n days
+        Returns:
+            google search result (List of dict), including url, title and descriptoin
+        """
+        google = WebSearch(proxies=proxies)
+        after = (datetime.today() + timedelta(days=-1*past_n_days)).strftime('%Y-%m-%d') 
+        search_results = []
+        for screen_nm in self.followed_accts:
+            query = f"{screen_nm} on x site:x.com after:{after}"
+            print(query)
+            results = google.google_search_w_retries(query, max_cnt)
+            search_results.append(results)
+            time.sleep(5)
+        return search_results
+
+    def get_all_accts_tweets(self, urls_group, proxies:Optional[List[str]]=None):
         """get followed twitter accounts and top tweets from the accts
         """
-        users_tweets = []
+        twitter = TwitterKit(proxy_list=proxies)
         followed_users, followed_tweets = [], []
-        users_ids = []
-
-        for user in self.twitter_accts:
-            user_tweet = self.twitter.get_tweets_by_user(user, total=top_k)
-            users_tweets.append(user_tweet)
-
-            user_tweets_data = user_tweet.get('data', [])
-            for x in user_tweets_data:
-                content = x.get('content', {}).get('itemContent', {}).get('tweet_results', {}).get('result', {})
-                id = content.get('rest_id')  # tweet_id
-                tweet_user_data = content.get('core', {}).get('user_results', {}).get('result', {}).get('legacy', {})  # for user info
-                tweet_user_data['user_id_str'] = content.get('core', {}).get('user_results', {}).get('result', {}).get('rest_id')
-                tweet_data = content.get('legacy')  # for tweet info
-                tweet_data.pop('display_text_range', None)
-                tweet_data.pop('extended_entities', None)
-                tweet_data['screen_name'] = tweet_user_data.get('screen_name')
-                
-                followed_tweets.append(tweet_data)
-                if tweet_user_data.get('user_id_str') not in users_ids:
-                    followed_users.append(tweet_user_data)
-                    users_ids.append(tweet_user_data.get('user_id_str'))
+        for idx, urls in enumerate(urls_group):
+            screen_nm = self.followed_accts[idx]
+            for url in urls:
+                # url = rslt.get('url')
+                match = match = re.match(r'https://x\.com/([^/]+)/status/(\d+)(?:\?.*)?', url)
+                if match:
+                    if match.group(1) == screen_nm:
+                        tweet_id = match.group(2)
+                        print(url, screen_nm, tweet_id)
+                        tweet_data, acct_data = twitter.get_tweet_by_id(tweet_id)
+                        followed_tweets.append(tweet_data)
+                        followed_users.append(acct_data)
         return followed_users, followed_tweets
 
-    def regroup_user_tweets(
-            self, 
-            tweets: List[Dict], 
-            base_dt: str, 
-            timelength: int):
-        """filter and regroup user tweets
+    def get_arxiv_ids(self, x_accts, x_tweets):
+        """get arxiv paper urls and ids from tweet text
         Args:
             tweets: output from get_user_tweets, List of Dict
         """
-        tweet_paper_metadata = []
-        other_tweets = []
+        tweet_arxiv_info = []
 
-        for tweet in tweets:
-            dt_str = tweet.get('created_at', 'Sat Jan 1 00:00:01 +0000 2000')
-            dt_tm = datetime.strptime(dt_str, '%a %b %d %H:%M:%S +0000 %Y')
-            base_dt_tm = datetime.strptime(base_dt, '%Y-%m-%d')
-            # filter by time
-            if dt_tm >= base_dt_tm + timedelta(days=-timelength) and dt_tm <= base_dt_tm + timedelta(days=timelength):
-                url_info = tweet.get('entities', {}).get('urls', {})
-                flag = 0 
-                for item in url_info:
-                    # identify url with academic website
-                    if re.search(self.url_pattern, item.get('expanded_url', 'NA')):
-                        flag = 1
-                        paper_url = item.get('expanded_url')
-                        break
-                if flag == 1:
-                    paper_info = {
-                        "title": None,
-                        "abstract": None,
-                        "paper_url": paper_url,
-                        "tweet_url": f"https://x.com/{tweet.get('screen_name')}/status/{tweet.get('id_str')}",
-                        "description": tweet.get('full_text'),
-                        "source": "twitter",
-                        "source_url": f"https://x.com/{tweet.get('screen_name')}",
-                        "extra_info": tweet,
-                    }
-                    tweet_paper_metadata.append(paper_info)
-                else:
-                    other_tweets.append(tweet)
-        return tweet_paper_metadata, other_tweets
+        assert len(x_accts) == len(x_tweets)
+        for idx, tweet in enumerate(x_tweets):
+            acct_data = x_accts[idx]
+            screen_nm = acct_data.get('screen_name')
+            tweet_id = tweet.get('id')
+            uid = tweet.get('user_id_str')
+            full_text = tweet.get('full_text')
+
+            url_info = tweet.get('entities', {}).get('urls', {})
+            for item in url_info:
+                # identify url with academic website
+                if re.search(self.url_pattern, item.get('expanded_url', 'NA')):
+                    paper_url = item.get('expanded_url')
+                    if 'arxiv.org' in paper_url:
+                        arxiv_no = paper_url.split('/')[-1]
+                        arxiv_id = re.sub(r'v\d+$', '', arxiv_no)
+                        version = re.search(r'v\d+$', arxiv_no)
+                        tweet_arxiv_info.append({'x_tweet_id': tweet_id, 
+                                                 'arxiv_id': arxiv_id, 
+                                                 'x_screen_name': screen_nm,
+                                                 'x_uid': uid,
+                                                 'x_full_text': full_text})
+        return tweet_arxiv_info
     
-    def llm_regroup_tweets(self, tweets,):
-        """use LLM to identify if tweets is paper related"""
-        llm_tweet_info = []
-        for item in tweets:
-            llm_tweet_info.append({'id': item.get('id_str'),
-                            'user': item.get('screen_name'),
-                            'text': item.get('full_text')})
-        llm_tweet_data = json.dumps(llm_tweet_info, ensure_ascii=False, indent=2)
-
-        def llm_identify_tweets(tweets, api_key=CONFIG['LLM']['GEMINI_API_KEY'], model_name=CONFIG['LLM']['GEMINI_MDL_NM']):
-            sys_prompt = """You are a proficient academic researcher. 
-            So far you have extracted tweets from Twitter, now your task is to identify if the tweets relate to '{domain}' research or papers and output them in json format.
-
-            The input format is a list of dictionaries, each containing the tweet ID, the user who posted the tweet, and the tweet text, as follows:
-            {"id": "1234567890123456789", "user": "username", "text": "Tweet text."}
-
-            You are suppose to categorize each tweet into one of the three groups:
-            - "paper_related": tweets that closely related to academic paper
-            - "non_related": tweets that not related to academic paper
-            - "TBD": not yet clear based on given tweet
-
-            Output format as follows:
-            {"paper_related":["related tweet id", "related tweet id", ...],
-            "non_related":["related tweet id", "related tweet id", ...],
-            "TBD":["related tweet id", "related tweet id", ...],
-            }
-            """
-
-            qa_prompt = """Now, please process the following list of dictionaries and generate the corresponding output.
-            ```json
-            {tweets}
-            ```
-            """
-            response = gemini_llm(    
-                api_key, 
-                model_name,  
-                qa_prompt = qa_prompt.format(tweets=tweets), 
-                sys_prompt=sys_prompt, 
-                temperature=0.1)
-            return response
-        
-        response = llm_identify_tweets(llm_tweet_data)
-        paper_regroup = (json.loads(repair_json(response)))
-        return paper_regroup
     
-        
+    def retieve_paper_meta(self, tweet_arxiv_info):
+        arxiv = ArxivKit()
+        arxiv_ids = [x.get('arxiv_id') for x in tweet_arxiv_info]
+        papers_metadata = arxiv.retrieve_metadata_by_paper(paper_ids=arxiv_ids)
+
+        papers_info = []
+        for idx, meta in enumerate(papers_metadata):
+            related_info = tweet_arxiv_info[idx]
+            paper_info = {
+                    "title": meta.get('title'),
+                    "abstract": meta.get('summary'),
+                    "paper_url": meta.get('id'),
+                    "tweet_url": f"https://x.com/{related_info.get('x_screen_name')}/status/{related_info.get('x_tweet_id')}",
+                    "description": related_info.get('x_full_text'),
+                    "source": "twitter",
+                    "source_url": f"https://x.com/{related_info.get('x_screen_name')}",
+                    "extra_info": related_info,
+                }
+            papers_info.append(paper_info)
+        return papers_info

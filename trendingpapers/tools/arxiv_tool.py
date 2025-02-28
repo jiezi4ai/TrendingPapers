@@ -28,9 +28,10 @@ async def handle_http_error(e):
         raise e
 
 class ArxivKit:   
-    def __init__(self):                 
+    def __init__(self, data_path):                 
         self.client = arxiv.Client(page_size= 100, delay_seconds=3.0, num_retries=3)
         self.connection = Sickle('http://export.arxiv.org/oai2')
+        self.data_path = data_path
 
     def retrieve_metadata_by_paper(
             self,
@@ -139,7 +140,7 @@ class ArxivKit:
                         logger.critical('Too many consecutive errors, stopping the harvester.')
                         raise
 
-    async def retrieve_metadata_by_category(self, category, from_date, until_date, data_path):
+    async def retrieve_metadata_by_category(self, category, from_date, until_date, data_path:Optional[str]=None):
         """retrieve metadata by category through OAI protocol
         Args:
             category (str): Specify paper category like "cs", "math", etc. 
@@ -150,6 +151,7 @@ class ArxivKit:
         Returns:
             str: full path of the downloaded metadata file
         """
+        data_path = self.data_path if data_path is None else data_path
         full_path = await self.download_category_metadata(category, from_date, until_date, data_path)
         if os.path.exists(full_path) and full_path.endswith('.xml') and os.path.getsize(full_path) > 0:
             # define namespace
