@@ -25,7 +25,7 @@ It would then study the semantic similarity and recommend papers to you.
 
 
 ## Quick Start
-**Set up config.py**
+**Set up config.py**  
 Some of the parameters are:
 - TIME: By default, all Arxiv paper metadata since yesterday would be collected, while for X accouts, posts of the past three days would be reviewed for paper information.
 - ARXIV: adjust domain and category to the ones you interested in.
@@ -34,7 +34,7 @@ Some of the parameters are:
 - LLM and EMBED: for now, only Gemini APIs are supported (since they are free of charge!!!). Requires code change if you want to shift to your LLMs.
 - API: Zotero is applied to match to papers you read. Firecrwal is used to get Huggingface Daily Papers, since user with proxy IPs would be restricted from geting Huggingface data.
 
-**Run main.py**
+**Run main.py**  
 Once you get config file ready, you shall start to run main.py. It takes approximately 5 minutes.
 Neglect all warnings or log erros (they mainly come from rate limits restrictions), unless your code aborted.
 Raise the issue you met.
