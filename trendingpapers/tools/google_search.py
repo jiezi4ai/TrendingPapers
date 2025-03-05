@@ -38,12 +38,12 @@ import requests
 __version__ = "1.10.0"
 
 # Logging
-ROOT_LOGGER = logging.getLogger("yagooglesearch")
+ROOT_LOGGER = logging.getLogger("trendingpapers")  # logging.getLogger("yagooglesearch")
 # ISO 8601 datetime format by default.
 LOG_FORMATTER = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)s] %(message)s")
 
 # Setup file logging.
-log_file_handler = logging.FileHandler("yagooglesearch.py.log")
+log_file_handler = logging.FileHandler("trendingpapers.log")  # logging.FileHandler("yagooglesearch.py.log")
 log_file_handler.setFormatter(LOG_FORMATTER)
 ROOT_LOGGER.addHandler(log_file_handler)
 

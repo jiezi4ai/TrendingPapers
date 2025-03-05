@@ -22,7 +22,7 @@ class PapersDiscussed:
         self.website = CONFIG['TWITTER']['DETECTED_WEBSITE']
         self.url_pattern = r"(" + "|".join(map(lambda x: x.replace(".", r"\."), self.website)) + ")"
 
-    def get_tweet_urls(self, proxies:Optional[List[str]]=None, max_cnt:Optional[int]=20, past_n_days:Optional[int]=3):
+    def get_tweet_urls(self, proxies:Optional[List[str]]=None, max_cnt:Optional[int]=20, past_n_days:Optional[int]=CONFIG['TIME']['TIMELENGTH']):
         """Use google search to get tweet urls for specific twitter account
         Args:
             screen name (str): screen name of twitter account
@@ -36,7 +36,6 @@ class PapersDiscussed:
         search_results = []
         for screen_nm in self.followed_accts:
             query = f"{screen_nm} on x site:x.com after:{after}"
-            print(query)
             results = google.google_search_w_retries(query, max_cnt)
             search_results.append(results)
             time.sleep(5)

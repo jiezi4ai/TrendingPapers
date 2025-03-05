@@ -9,7 +9,7 @@ CONFIG = {
     'TIME': {
         'CURRENT_DT': CURRENT_DT,
         'YESTERDAY': YESTERDAY,
-        'TIMELENGTH': 7,  # datelength of past 7 days
+        'TIMELENGTH': 3,  # datelength of past 3 days
     },
     'ARXIV':{
         'DOMAIN': ['cs', 'stat'],  # domain refer to http://export.arxiv.org/oai2?verb=ListSets
@@ -30,7 +30,7 @@ CONFIG = {
         ]
     },
     'DATABASE': {  # params on database
-        'DB_PATH': '/home/jiezi/Code/GitHub/TrendingPapers/data',
+        'DB_PATH': '../data',
         'DB_NAME': 'trending_papers.db',
 
         'OAI_PAPER_TBL_NM': "oai_paper_pool",  # table for preprint paper metadata (batch trhough OAI)
