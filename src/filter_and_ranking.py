@@ -1,6 +1,6 @@
 import numpy as np
 from typing import List, Dict, Optional
-from trendingpapers.models.default_models import gemini_embedding_async, semantic_similarity_matrix
+from models.default_models import gemini_embedding_async, semantic_similarity_matrix
 
 async def filter_by_topics(
         api_key,

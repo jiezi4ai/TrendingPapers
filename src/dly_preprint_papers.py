@@ -1,7 +1,7 @@
 import time
 from typing import List, Dict
 
-from trendingpapers.tools.arxiv_tool import ArxivKit
+from tools.arxiv_tool import ArxivKit
 
 class PapersPreprint:
     def __init__(self, data_path):

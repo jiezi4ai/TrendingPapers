@@ -6,10 +6,10 @@ from typing import List, Dict, Optional
 
 from json_repair import repair_json  # pip install json-repair https://github.com/mangiucugna/json_repair/
 
-from trendingpapers.config import CONFIG
-from trendingpapers.tools.web_search_tool import WebSearch
-from trendingpapers.tools.twitter_tool import TwitterKit
-from trendingpapers.tools.arxiv_tool import ArxivKit
+from config import CONFIG
+from tools.web_search_tool import WebSearch
+from tools.twitter_tool import TwitterKit
+from tools.arxiv_tool import ArxivKit
 
 
 class PapersDiscussed:

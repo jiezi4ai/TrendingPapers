@@ -4,9 +4,9 @@
 import re
 import json
 
-from trendingpapers.config import CONFIG
-from trendingpapers.tools.github_tool import GitHubKit
-from trendingpapers.tools.huggingface_tool import HuggingFaceKit
+from config import CONFIG
+from tools.github_tool import GitHubKit
+from tools.huggingface_tool import HuggingFaceKit
 
 class PapersRecommended:
     def __init__(self, firecrawl_api_key=None):

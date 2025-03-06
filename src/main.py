@@ -6,12 +6,12 @@ from typing import List, Dict, Optional
 from pyzotero import zotero  # pip install pyzotero https://github.com/urschrei/pyzotero
 from fp.fp import FreeProxy  # pip install free-proxy https://github.com/jundymek/free-proxy
 
-from trendingpapers.config import CONFIG
-from trendingpapers.dly_preprint_papers import PapersPreprint
-from trendingpapers.dly_discussed_papers import PapersDiscussed
-from trendingpapers.dly_recommended_papers import PapersRecommended
-from trendingpapers.database.sqlite_interface import df_to_sqlite
-from trendingpapers.filter_and_ranking import filter_by_topics
+from config import CONFIG
+from dly_preprint_papers import PapersPreprint
+from dly_discussed_papers import PapersDiscussed
+from dly_recommended_papers import PapersRecommended
+from database.sqlite_interface import df_to_sqlite
+from filter_and_ranking import filter_by_topics
 
 def gen_proxy_list(timeout=5, google_enable=False, anonym=False, filtered=False, https=False):
     return FreeProxy(
@@ -175,11 +175,11 @@ async def run_trending_papers(
         #          "paper_url": entry[3].strip(),
         # }
         print("\n\nSuggested Readings:\n")
-        print(f"Title: {(dly_papers_titles+rec_papers_titles)[item.get('candidate_index')]}\n")
+        print(f"Title: {(dly_papers_titles+rec_papers_titles)[item.get('candidate_index')]}")
         print('```ABSTRACT')
         print(json.dumps(info, ensure_ascii=False, indent=4))
         print('```')
-        print("Matched Reasons:\n")
+        print("Matched Reasons:")
 
         for x in item.get('matched_info'):
             pos = x.get('row_index')
@@ -188,6 +188,7 @@ async def run_trending_papers(
                 print(f"matched paper '{zot_papers[pos].get('data', {}).get('title')}', similarity score: {matched_score}")
             else:
                 print(f"matched keywords '{keywords[pos]}', similarity score: {matched_score}")
+        print("*"*20)
 
 async def main():
     keywords = []  # Example keywords

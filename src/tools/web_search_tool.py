@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-from trendingpapers.tools.google_search import SearchClient
+from tools.google_search import SearchClient
 
 MAX_RESULTS = 100
 MAX_RETRIES = 5

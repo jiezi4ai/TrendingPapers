@@ -43,7 +43,7 @@ class HuggingFaceKit:
 
 
     def fetch_daily_papers(self, date_str=None, max_cnt=None):
-        logger.info(f"正在获取HuggingFace Daily Paper的论文数据")
+        logger.info(f"Retrieve HuggingFace Daily Paper.")
         
         # 构建API URL
         if date_str is not None and max_cnt is not None:
